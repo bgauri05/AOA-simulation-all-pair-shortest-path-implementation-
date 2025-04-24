@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Shortest Route Adventure 🚗</title>
+  <style>
+    body {
+      font-family: 'Comic Sans MS', cursive, sans-serif;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      background: #d0f0c0 url('https://www.transparenttextures.com/patterns/paper-fibers.png');
+    }
+    h1 {
+      background: linear-gradient(to right, #ff6a00, #ee0979);
+      color: white;
+      padding: 20px;
+      margin: 0;
+      text-shadow: 2px 2px 4px #000;
+    }
+    canvas {
+      border: 3px dashed #ee0979;
+      background: #fffce6;
+      margin: 20px auto;
+      display: block;
+      border-radius: 10px;
+    }
+    button, input {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+    }
+    button {
+      background-color: #ff6a00;
+      color: white;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #ee0979;
+    }
+    input {
+      width: 100px;
+      border: 2px solid #ccc;
+    }
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    td, th {
+      border: 1px solid #999;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    th {
+      background-color: #ee0979;
+      color: white;
+    }
+    h3 {
+      color: #ee0979;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚗 Shortest Route Adventure!</h1>
+  <canvas id="graphCanvas" width="600" height="400"></canvas>
+  <div>
+    <button onclick="addNode()">🏙 Add City</button>
+    <input type="number" id="from" placeholder="From" />
+    <input type="number" id="to" placeholder="To" />
+    <input type="number" id="weight" placeholder="Distance" />
+    <button onclick="addEdge()">🛣 Add Road</button>
+    <button onclick="runFloydWarshall()">🚦 Find Routes</button>
+  </div>
+  <div id="matrix"></div>
+
+  <script>
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    let nodes = [];
+    let edges = [];
+    const emojis = ["🏙", "🌉", "🏕", "🎡", "🏖", "🗼", "🏰", "🛤"];
+
+    function drawGraph() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      edges.forEach(e => {
+        let a = nodes[e.from];
+        let b = nodes[e.to];
+        if (!a || !b) return;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        let midX = (a.x + b.x) / 2;
+        let midY = (a.y + b.y) / 2;
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillText(e.weight + ' km', midX, midY);
+      });
+
+      nodes.forEach((node, index) => {
+        ctx.font = '24px serif';
+        ctx.fillText(node.emoji, node.x - 12, node.y + 8);
+        ctx.font = 'bold 14px sans-serif';
+        ctx.fillStyle = '#000';
+        ctx.fillText(index, node.x - 4, node.y + 25);
+      });
+    }
+
+    function addNode() {
+      let angle = (nodes.length / 8) * 2 * Math.PI;
+      let x = 300 + 150 * Math.cos(angle);
+      let y = 200 + 150 * Math.sin(angle);
+      let emoji = emojis[nodes.length % emojis.length];
+      nodes.push({ x, y, emoji });
+      drawGraph();
+    }
+
+    function addEdge() {
+      const from = parseInt(document.getElementById('from').value);
+      const to = parseInt(document.getElementById('to').value);
+      const weight = parseInt(document.getElementById('weight').value);
+      if (
+        !isNaN(from) && !isNaN(to) && !isNaN(weight) &&
+        from >= 0 && from < nodes.length &&
+        to >= 0 && to < nodes.length
+      ) {
+        edges.push({ from, to, weight });
+        drawGraph();
+      } else {
+        alert("🛑 Please enter valid city indices and distance.");
+      }
+    }
+
+    function runFloydWarshall() {
+      let n = nodes.length;
+      let dist = Array.from({ length: n }, () => Array(n).fill(Infinity));
+      for (let i = 0; i < n; i++) dist[i][i] = 0;
+
+      // Handle undirected graph by adding both directions
+      edges.forEach(e => {
+        dist[e.from][e.to] = e.weight;
+        dist[e.to][e.from] = e.weight;
+      });
+
+      for (let k = 0; k < n; k++) {
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) {
+            if (dist[i][k] + dist[k][j] < dist[i][j]) {
+              dist[i][j] = dist[i][k] + dist[k][j];
+            }
+          }
+        }
+      }
+
+      // Render matrix
+      let html = '<h3>📍 Shortest Distances Between Cities</h3><table><tr><th>From/To</th>';
+      for (let i = 0; i < n; i++) html += <th>${i}</th>;
+      html += '</tr>';
+      for (let i = 0; i < n; i++) {
+        html += <tr><th>${i}</th>;
+        for (let j = 0; j < n; j++) {
+          html += <td>${dist[i][j] === Infinity ? '∞' : dist[i][j] + ' km'}</td>;
+        }
+        html += '</tr>';
+      }
+      html += '</table>';
+      document.getElementById('matrix').innerHTML = html;
+
+      // Optional animation
+      let car = new Image();
+      car.src = 'https://emojiapi.dev/api/v1/1f697.svg';
+      let pathEdges = edges.filter(e => dist[e.from][e.to] === e.weight);
+      let i = 0;
+
+      function animateCar() {
+        if (i >= pathEdges.length) return;
+        let { from, to } = pathEdges[i];
+        let a = nodes[from];
+        let b = nodes[to];
+        let steps = 30, step = 0;
+
+        let anim = setInterval(() => {
+          drawGraph();
+          let x = a.x + ((b.x - a.x) * step / steps);
+          let y = a.y + ((b.y - a.y) * step / steps);
+          ctx.font = '24px serif';
+          ctx.fillText('🚗', x - 12, y + 8);
+          step++;
+          if (step > steps) {
+            clearInterval(anim);
+            i++;
+            setTimeout(animateCar, 400);
+          }
+        }, 50);
+      }
+
+      animateCar();
+    }
+  </script>
+</body>
+</html>
